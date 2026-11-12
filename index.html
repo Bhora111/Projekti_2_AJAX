@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leffahaku – OMDb</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- defer: skripti ajetaan vasta, kun koko HTML on luettu,
+       joten JavaScript löytää kaikki sivun elementit -->
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="logo">Leffa<span>haku</span></h1>
+    <p class="tagline">Hae elokuvia ja sarjoja Open Movie Databasesta</p>
+
+    <!-- Hakulomake. Huom: ei onclick- tai onsubmit-attribuutteja,
+         tapahtumankäsittelijät lisätään JavaScriptissä -->
+    <form id="search-form" class="search-form" autocomplete="off">
+      <label for="search-input" class="visually-hidden">Elokuvan nimi</label>
+      <input type="search" id="search-input" placeholder="Esim. Batman, Matrix, Frozen…">
+      <button type="submit">Hae</button>
+    </form>
+  </header>
+
+  <main>
+    <!-- Tilaviesti: ohjeet, latausilmoitus ja virheet -->
+    <p id="status" class="status" role="status">Kirjoita elokuvan nimi ja paina Hae.</p>
+
+    <!-- Hakutulokset lisätään tähän JavaScriptillä -->
+    <section id="results" class="results-grid" aria-label="Hakutulokset"></section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Data: <a href="https://www.omdbapi.com/" target="_blank" rel="noopener">OMDb API</a></p>
+  </footer>
+</body>
+</html>

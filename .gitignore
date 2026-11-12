@@ -1,0 +1,5 @@
+# Paikalliset kehitysasetukset (eivät kuulu GitHubiin)
+.claude/
+.vscode/
+Thumbs.db
+desktop.ini
