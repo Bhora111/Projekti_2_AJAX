@@ -14,21 +14,57 @@
     <h1 class="logo">Leffa<span>haku</span></h1>
     <p class="tagline">Hae elokuvia ja sarjoja Open Movie Databasesta</p>
 
-    <!-- Hakulomake. Huom: ei onclick- tai onsubmit-attribuutteja,
-         tapahtumankäsittelijät lisätään JavaScriptissä -->
+    <!-- Hakulomake. Huom: ei onclick-, onchange- tai onsubmit-attribuutteja,
+         kaikki tapahtumankäsittelijät lisätään JavaScriptissä -->
     <form id="search-form" class="search-form" autocomplete="off">
-      <label for="search-input" class="visually-hidden">Elokuvan nimi</label>
-      <input type="search" id="search-input" placeholder="Esim. Batman, Matrix, Frozen…">
-      <button type="submit">Hae</button>
+      <div class="search-row">
+        <label for="search-input" class="visually-hidden">Elokuvan nimi</label>
+        <input type="search" id="search-input" placeholder="Esim. Batman, Matrix, Frozen…">
+        <button type="submit">Hae</button>
+      </div>
+
+      <!-- Pudotusvalikot. Vuodet ja pikahaun vaihtoehdot lisätään JavaScriptillä -->
+      <div class="filter-row">
+        <label class="filter">
+          Tyyppi
+          <select id="type-select">
+            <option value="">Kaikki</option>
+            <option value="movie">Elokuvat</option>
+            <option value="series">Sarjat</option>
+            <option value="episode">Jaksot</option>
+          </select>
+        </label>
+
+        <label class="filter">
+          Vuosi
+          <select id="year-select">
+            <option value="">Kaikki vuodet</option>
+          </select>
+        </label>
+
+        <label class="filter">
+          Pikahaku
+          <select id="quick-select">
+            <option value="">Valitse…</option>
+          </select>
+        </label>
+      </div>
     </form>
   </header>
 
   <main>
     <!-- Tilaviesti: ohjeet, latausilmoitus ja virheet -->
-    <p id="status" class="status" role="status">Kirjoita elokuvan nimi ja paina Hae.</p>
+    <p id="status" class="status" role="status">Kirjoita elokuvan nimi tai valitse jotain pikahausta.</p>
 
     <!-- Hakutulokset lisätään tähän JavaScriptillä -->
     <section id="results" class="results-grid" aria-label="Hakutulokset"></section>
+
+    <!-- Sivutus: piilotettu (hidden), kunnes tuloksia on yli yhden sivun verran -->
+    <nav id="pagination" class="pagination" aria-label="Tulossivut" hidden>
+      <button type="button" id="prev-page">‹ Edellinen</button>
+      <span id="page-info" class="page-info"></span>
+      <button type="button" id="next-page">Seuraava ›</button>
+    </nav>
   </main>
 
   <footer class="site-footer">
