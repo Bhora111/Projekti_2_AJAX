@@ -62,9 +62,6 @@ main {
   margin: 0;
   font-size: clamp(2rem, 6vw, 2.8rem);
   letter-spacing: 0.02em;
-}
-
-.logo span {
   color: var(--accent);
 }
 
