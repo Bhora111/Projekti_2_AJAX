@@ -1,7 +1,7 @@
 'use strict';
 
 /* =========================================================
-   Leffahaku – Projekti 2a: AJAX-kutsu live REST API:in
+   Leffaparkki – Projekti 2a: AJAX-kutsu live REST API:in
    Data haetaan OMDb-rajapinnasta: https://www.omdbapi.com/
 
    Ohjelman kulku (tehtävänannon neljä vaihetta):
