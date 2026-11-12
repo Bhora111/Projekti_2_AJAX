@@ -67,6 +67,13 @@
     </nav>
   </main>
 
+  <!-- Elokuvan tiedot -ikkuna. <dialog> on selaimen oma modaali-ikkuna:
+       se sulkeutuu myös Esc-näppäimellä. Sisältö lisätään JavaScriptillä. -->
+  <dialog id="details-dialog" class="details-dialog" aria-labelledby="details-title">
+    <button type="button" id="close-dialog" class="close-button" aria-label="Sulje">×</button>
+    <div id="details-content" class="details-content"></div>
+  </dialog>
+
   <footer class="site-footer">
     <p>Data: <a href="https://www.omdbapi.com/" target="_blank" rel="noopener">OMDb API</a></p>
   </footer>

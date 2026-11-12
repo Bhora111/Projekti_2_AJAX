@@ -5,10 +5,11 @@
    Data haetaan OMDb-rajapinnasta: https://www.omdbapi.com/
 
    Ohjelman kulku (tehtävänannon neljä vaihetta):
-     1. Pyydetään dataa OMDb:ltä AJAX-kutsulla        -> fetchMovies()
-     2. Tallennetaan tulos ja valitaan käytettävä data -> searchState, pickMovieData()
-     3. Näytetään data sivulla                        -> renderMovies(), updatePagination()
-     4. Käyttäjä käynnistää uuden haun                -> hakukenttä, pudotusvalikot ja sivutus
+     1. Pyydetään dataa OMDb:ltä AJAX-kutsulla        -> fetchMovies(), fetchMovieDetails()
+     2. Tallennetaan tulos ja valitaan käytettävä data -> searchState, pickMovieData(), pickDetailsData()
+     3. Näytetään data sivulla                        -> renderMovies(), renderDetails()
+     4. Käyttäjä käynnistää uuden haun                -> hakukenttä, pudotusvalikot, sivutus
+                                                         ja elokuvakortin klikkaus
    ========================================================= */
 
 
@@ -31,6 +32,13 @@ const TYPE_NAMES = {
   series: 'sarja',
   episode: 'jakso',
   game: 'peli'
+};
+
+// Arvostelulähteiden lyhyemmät nimet tietoikkunaan
+const RATING_SOURCES = {
+  'Internet Movie Database': 'IMDb',
+  'Rotten Tomatoes': 'Rotten Tomatoes',
+  'Metacritic': 'Metacritic'
 };
 
 // Pikahakuvalikon vaihtoehdot: label näkyy valikossa, query lähetetään OMDb:lle
@@ -63,6 +71,9 @@ const pagination = document.getElementById('pagination');
 const prevButton = document.getElementById('prev-page');
 const nextButton = document.getElementById('next-page');
 const pageInfo = document.getElementById('page-info');
+const detailsDialog = document.getElementById('details-dialog');
+const detailsContent = document.getElementById('details-content');
+const closeDialogButton = document.getElementById('close-dialog');
 
 
 /* ---------- Sovelluksen tila ---------- */
@@ -77,24 +88,53 @@ const searchState = {
   totalPages: 0
 };
 
-// Kesken olevan haun AbortController, jolla haku voidaan perua
-let activeRequest = null;
+// Kesken olevat pyynnöt. AbortControllerilla vanha pyyntö perutaan, kun uusi alkaa.
+let activeSearchRequest = null;
+let activeDetailsRequest = null;
+
+// Välimuisti jo haetuille elokuvien tiedoille (avain = IMDb-tunniste).
+// Kun samaa elokuvaa klikataan uudelleen, uutta AJAX-kutsua ei tarvita.
+const detailsCache = new Map();
 
 
-/* ---------- 1. Datan pyytäminen (AJAX-kutsu) ---------- */
+/* ---------- 1. Datan pyytäminen (AJAX-kutsut) ---------- */
 
 /**
- * Hakee OMDb:stä elokuvia annetuilla hakuehdoilla.
- * fetch() lähettää HTTP-pyynnön taustalla ilman, että sivu latautuu uudelleen (= AJAX).
- * @param {object} search Hakuehdot: query, type, year ja page
+ * Lähettää AJAX-pyynnön OMDb:hen. Tätä samaa funktiota käyttävät
+ * sekä elokuvahaku että yksittäisen elokuvan tietojen haku.
+ * @param {URLSearchParams} params Kyselyn parametrit (ilman API-avainta)
  * @param {AbortSignal} signal Signaali, jolla pyyntö voidaan perua kesken
  * @returns {Promise<object>} OMDb:n vastaus JavaScript-oliona
  */
-async function fetchMovies(search, signal) {
-  // URLSearchParams rakentaa osoitteen kyselyosan (?apikey=...&s=...&page=...)
+async function fetchFromOmdb(params, signal) {
+  params.set('apikey', API_KEY);
+
+  // fetch() lähettää HTTP-pyynnön taustalla ilman, että sivu latautuu uudelleen (= AJAX).
+  // await odottaa vastausta, ja sillä välin sivu toimii normaalisti.
+  const response = await fetch(`${API_URL}?${params}`, { signal });
+
+  // Muutetaan vastauksen JSON-teksti JavaScript-olioksi
+  const data = await response.json();
+
+  // OMDb kertoo virheistä kentässä Response: "False" (esim. "Movie not found!").
+  // Heitetään silloin virhe, jonka kutsuva funktio ottaa kiinni try...catchilla.
+  if (data.Response === 'False') {
+    throw new Error(data.Error);
+  }
+
+  return data;
+}
+
+/**
+ * Hakee elokuvia hakusanalla ja valituilla suodattimilla.
+ * @param {object} search Hakuehdot: query, type, year ja page
+ * @param {AbortSignal} signal
+ * @returns {Promise<object>} Hakutulokset (10 kpl / sivu)
+ */
+function fetchMovies(search, signal) {
+  // URLSearchParams rakentaa osoitteen kyselyosan (?s=...&page=...)
   // ja koodaa välilyönnit ja erikoismerkit oikein
   const params = new URLSearchParams({
-    apikey: API_KEY,
     s: search.query,
     page: search.page
   });
@@ -107,27 +147,39 @@ async function fetchMovies(search, signal) {
     params.set('y', search.year);
   }
 
-  // await odottaa palvelimen vastausta ennen kuin koodi jatkuu.
-  // Sillä välin selain ja sivu toimivat normaalisti.
-  const response = await fetch(`${API_URL}?${params}`, { signal });
+  return fetchFromOmdb(params, signal);
+}
 
-  // Muutetaan vastauksen JSON-teksti JavaScript-olioksi
-  const data = await response.json();
-
-  // OMDb kertoo virheistä kentässä Response: "False" (esim. "Movie not found!").
-  // Heitetään silloin virhe, jonka runSearch() ottaa kiinni.
-  if (data.Response === 'False') {
-    throw new Error(data.Error);
-  }
-
-  return data;
+/**
+ * Hakee yhden elokuvan kaikki tiedot IMDb-tunnisteella.
+ * @param {string} id IMDb-tunniste, esim. "tt0076759"
+ * @param {AbortSignal} signal
+ * @returns {Promise<object>} Elokuvan tiedot
+ */
+function fetchMovieDetails(id, signal) {
+  // i = IMDb-tunniste, plot=full = pitkä juonikuvaus lyhyen sijaan
+  const params = new URLSearchParams({
+    i: id,
+    plot: 'full'
+  });
+  return fetchFromOmdb(params, signal);
 }
 
 
 /* ---------- 2. Tuloksen tallennus ja datan valinta ---------- */
 
 /**
- * Poimii OMDb:n vastauksesta vain ne tiedot, joita sivulla näytetään.
+ * OMDb merkitsee puuttuvan tiedon tekstillä "N/A".
+ * Muutetaan se null-arvoksi, jotta puuttuvat tiedot on helppo jättää pois.
+ * @param {string|undefined} value
+ * @returns {string|null}
+ */
+function cleanValue(value) {
+  return value && value !== 'N/A' ? value : null;
+}
+
+/**
+ * Poimii hakuvastauksesta vain ne tiedot, joita korteissa näytetään.
  * @param {object} data OMDb:n hakuvastaus
  * @returns {Array<object>} Taulukko elokuvista
  */
@@ -139,9 +191,41 @@ function pickMovieData(data) {
     title: item.Title,
     year: item.Year,
     type: TYPE_NAMES[item.Type] || item.Type,
-    // OMDb merkitsee puuttuvan julisteen tekstillä "N/A"
-    poster: item.Poster !== 'N/A' ? item.Poster : null
+    poster: cleanValue(item.Poster)
   }));
+}
+
+/**
+ * Poimii yhden elokuvan vastauksesta tietoikkunassa näytettävät tiedot.
+ * @param {object} data OMDb:n vastaus i-haulle
+ * @returns {object} Elokuvan tiedot
+ */
+function pickDetailsData(data) {
+  return {
+    id: data.imdbID,
+    title: data.Title,
+    year: data.Year,
+    type: TYPE_NAMES[data.Type] || data.Type,
+    poster: cleanValue(data.Poster),
+    runtime: cleanValue(data.Runtime),
+    rated: cleanValue(data.Rated),
+    // Genret tulevat yhtenä tekstinä ("Action, Adventure"), joten pilkotaan ne taulukoksi
+    genres: cleanValue(data.Genre) ? data.Genre.split(', ') : [],
+    plot: cleanValue(data.Plot),
+    director: cleanValue(data.Director),
+    writer: cleanValue(data.Writer),
+    actors: cleanValue(data.Actors),
+    totalSeasons: cleanValue(data.totalSeasons), // vain sarjoilla
+    released: cleanValue(data.Released),
+    language: cleanValue(data.Language),
+    country: cleanValue(data.Country),
+    awards: cleanValue(data.Awards),
+    // Arvostelut: esim. { source: 'IMDb', value: '8.6/10' }
+    ratings: (data.Ratings || []).map((rating) => ({
+      source: RATING_SOURCES[rating.Source] || rating.Source,
+      value: rating.Value
+    }))
+  };
 }
 
 /**
@@ -151,10 +235,10 @@ function pickMovieData(data) {
 async function runSearch() {
   // Jos edellinen haku on vielä kesken, perutaan se.
   // Näin hitaasti saapuva vanha vastaus ei voi korvata uudempia tuloksia.
-  if (activeRequest) {
-    activeRequest.abort();
+  if (activeSearchRequest) {
+    activeSearchRequest.abort();
   }
-  activeRequest = new AbortController();
+  activeSearchRequest = new AbortController();
 
   showStatus(`Haetaan "${searchState.query}"…`, 'loading');
   resultsGrid.replaceChildren();
@@ -163,14 +247,14 @@ async function runSearch() {
   // try...catch: jos haku epäonnistuu missä tahansa kohdassa,
   // hypätään catch-lohkoon ja näytetään virheilmoitus
   try {
-    const data = await fetchMovies(searchState, activeRequest.signal); // 1. pyydetään data
-    const movies = pickMovieData(data);                                // 2. valitaan tarvittavat tiedot
+    const data = await fetchMovies(searchState, activeSearchRequest.signal); // 1. pyydetään data
+    const movies = pickMovieData(data);                                      // 2. valitaan tiedot
 
     // Lasketaan sivujen määrä tulosten kokonaismäärästä (10 tulosta / sivu)
     const totalResults = Number(data.totalResults);
     searchState.totalPages = Math.min(Math.ceil(totalResults / RESULTS_PER_PAGE), MAX_PAGES);
 
-    renderMovies(movies);                                              // 3. näytetään sivulla
+    renderMovies(movies);                                                    // 3. näytetään sivulla
     showStatus(buildResultText(totalResults));
   } catch (error) {
     // AbortError tarkoittaa, että haku peruttiin uuden haun tieltä.
@@ -187,7 +271,27 @@ async function runSearch() {
 }
 
 
-/* ---------- 3. Datan näyttäminen ---------- */
+/* ---------- 3. Datan näyttäminen: hakutulokset ---------- */
+
+/**
+ * Apufunktio: luo HTML-elementin ja antaa sille CSS-luokan ja tekstin.
+ * Teksti asetetaan textContentilla, jolloin API:n data näkyy aina
+ * pelkkänä tekstinä eikä sitä voi tulkita HTML-koodiksi.
+ * @param {string} tag Elementin tyyppi, esim. 'p' tai 'div'
+ * @param {string} [className] CSS-luokka
+ * @param {string} [text] Elementin teksti
+ * @returns {HTMLElement}
+ */
+function makeElement(tag, className = '', text = '') {
+  const element = document.createElement(tag);
+  if (className) {
+    element.className = className;
+  }
+  if (text) {
+    element.textContent = text;
+  }
+  return element;
+}
 
 /**
  * Näyttää elokuvakortit tulosalueella.
@@ -207,35 +311,31 @@ function renderMovies(movies) {
 }
 
 /**
- * Luo yhden elokuvakortin HTML-elementit.
- * Tekstit asetetaan textContentilla, jolloin API:n data näkyy aina
- * pelkkänä tekstinä eikä sitä voi tulkita HTML-koodiksi.
+ * Luo yhden elokuvakortin.
  * @param {object} movie Elokuvan tiedot
  * @returns {HTMLElement} Valmis kortti
  */
 function createMovieCard(movie) {
-  const card = document.createElement('article');
-  card.className = 'movie-card';
+  const card = makeElement('article', 'movie-card');
 
-  const info = document.createElement('div');
-  info.className = 'movie-info';
+  // Tallennetaan IMDb-tunniste korttiin (data-id-attribuutti),
+  // jotta klikkauksen käsittelijä tietää, minkä elokuvan tiedot avataan
+  card.dataset.id = movie.id;
 
-  const title = document.createElement('h2');
-  title.className = 'movie-title';
-  title.textContent = movie.title;
+  // tabIndex ja role tekevät kortista painikkeen, jota voi käyttää myös näppäimistöllä
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', `${movie.title} (${movie.year}), näytä tiedot`);
 
-  const meta = document.createElement('p');
-  meta.className = 'movie-meta';
-
-  const year = document.createElement('span');
-  year.textContent = movie.year;
-
-  const badge = document.createElement('span');
-  badge.className = 'type-badge';
-  badge.textContent = movie.type;
+  const info = makeElement('div', 'movie-info');
+  const title = makeElement('h2', 'movie-title', movie.title);
+  const meta = makeElement('p', 'movie-meta');
+  meta.append(
+    makeElement('span', '', movie.year),
+    makeElement('span', 'type-badge', movie.type)
+  );
 
   // Kootaan osat sisäkkäin: kortti > (juliste + info > (otsikko + meta))
-  meta.append(year, badge);
   info.append(title, meta);
   card.append(createPoster(movie), info);
 
@@ -244,7 +344,8 @@ function createMovieCard(movie) {
 
 /**
  * Luo julistekuvan. Jos julistetta ei ole, palautetaan tilalle tekstilaatikko.
- * @param {object} movie Elokuvan tiedot
+ * Käytetään sekä korteissa että tietoikkunassa.
+ * @param {object} movie Elokuvan tiedot (title ja poster)
  * @returns {HTMLElement} img-elementti tai korvaava laatikko
  */
 function createPoster(movie) {
@@ -271,10 +372,7 @@ function createPoster(movie) {
  * @returns {HTMLElement}
  */
 function createPosterPlaceholder() {
-  const placeholder = document.createElement('div');
-  placeholder.className = 'poster-placeholder';
-  placeholder.textContent = 'Ei julistetta';
-  return placeholder;
+  return makeElement('div', 'poster-placeholder', 'Ei julistetta');
 }
 
 /**
@@ -346,6 +444,7 @@ function setPaginationDisabled(disabled) {
 function translateError(message) {
   const translations = {
     'Movie not found!': 'Hakuehdoilla ei löytynyt yhtään elokuvaa. Kokeile toista hakusanaa tai suodatinta.',
+    'Incorrect IMDb ID.': 'Elokuvan tietoja ei löytynyt.',
     'Too many results.': 'Liikaa tuloksia. Kirjoita tarkempi hakusana.',
     'Invalid API key!': 'API-avain ei kelpaa. Tarkista avain tiedostosta js/app.js.',
     'Request limit reached!': 'Päivän hakuraja (1000 hakua) on täynnä. Yritä huomenna uudelleen.'
@@ -353,6 +452,143 @@ function translateError(message) {
 
   // Jos viestille ei ole käännöstä, kyse on yleensä verkkovirheestä
   return translations[message] || 'Haku epäonnistui. Tarkista verkkoyhteys ja yritä uudelleen.';
+}
+
+
+/* ---------- 3. Datan näyttäminen: elokuvan tiedot ---------- */
+
+/**
+ * Avaa tietoikkunan ja hakee klikatun elokuvan tarkemmat tiedot.
+ * @param {string} id IMDb-tunniste
+ */
+async function openDetails(id) {
+  // Perutaan mahdollinen edellinen, vielä kesken oleva tietojen haku
+  if (activeDetailsRequest) {
+    activeDetailsRequest.abort();
+  }
+  activeDetailsRequest = new AbortController();
+
+  // Avataan ikkuna heti ja näytetään latausilmoitus, kunnes tiedot saapuvat
+  showDetailsMessage('Ladataan tietoja…', 'loading');
+  if (!detailsDialog.open) {
+    detailsDialog.showModal();
+  }
+
+  try {
+    // Katsotaan ensin välimuistista. Jos tietoja ei vielä ole, tehdään AJAX-kutsu.
+    let details = detailsCache.get(id);
+    if (!details) {
+      const data = await fetchMovieDetails(id, activeDetailsRequest.signal); // 1. pyydetään data
+      details = pickDetailsData(data);                                       // 2. valitaan tiedot
+      detailsCache.set(id, details);
+    }
+    renderDetails(details);                                                  // 3. näytetään
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return;
+    }
+    showDetailsMessage(translateError(error.message), 'error');
+  }
+}
+
+/**
+ * Rakentaa tietoikkunan sisällön: juliste vasemmalle, tiedot oikealle.
+ * @param {object} movie pickDetailsData():n palauttamat tiedot
+ */
+function renderDetails(movie) {
+  const posterBox = makeElement('div', 'details-poster');
+  posterBox.append(createPoster(movie));
+
+  const info = makeElement('div', 'details-info');
+
+  const title = makeElement('h2', 'details-title', movie.title);
+  title.id = 'details-title'; // dialogin aria-labelledby viittaa tähän otsikkoon
+
+  // Esim. "1977 · elokuva · 121 min · PG". filter(Boolean) jättää puuttuvat (null) tiedot pois.
+  const metaText = [movie.year, movie.type, movie.runtime, movie.rated].filter(Boolean).join(' · ');
+  info.append(title, makeElement('p', 'details-meta', metaText));
+
+  if (movie.genres.length > 0) {
+    const genreList = makeElement('div', 'genre-list');
+    for (const genre of movie.genres) {
+      genreList.append(makeElement('span', 'genre-badge', genre));
+    }
+    info.append(genreList);
+  }
+
+  if (movie.ratings.length > 0) {
+    info.append(createRatingList(movie.ratings));
+  }
+
+  if (movie.plot) {
+    info.append(makeElement('p', 'details-plot', movie.plot));
+  }
+
+  info.append(createFactList(movie));
+
+  // Linkki elokuvan IMDb-sivulle uuteen välilehteen
+  const imdbLink = makeElement('a', 'imdb-link', 'Avaa IMDb:ssä ›');
+  imdbLink.href = `https://www.imdb.com/title/${movie.id}/`;
+  imdbLink.target = '_blank';
+  imdbLink.rel = 'noopener';
+  info.append(imdbLink);
+
+  detailsContent.replaceChildren(posterBox, info);
+}
+
+/**
+ * Luo arvostelulistan, esim. "8.6/10 IMDb", "93% Rotten Tomatoes".
+ * @param {Array<object>} ratings
+ * @returns {HTMLElement}
+ */
+function createRatingList(ratings) {
+  const list = makeElement('ul', 'rating-list');
+  for (const rating of ratings) {
+    const item = makeElement('li', 'rating');
+    item.append(
+      makeElement('span', 'rating-value', rating.value),
+      makeElement('span', 'rating-source', rating.source)
+    );
+    list.append(item);
+  }
+  return list;
+}
+
+/**
+ * Luo tietolistan (ohjaaja, näyttelijät jne.). Puuttuvat tiedot jätetään pois.
+ * @param {object} movie
+ * @returns {HTMLElement} <dl>-lista
+ */
+function createFactList(movie) {
+  // [otsikko, arvo] -parit
+  const facts = [
+    ['Ohjaaja', movie.director],
+    ['Käsikirjoitus', movie.writer],
+    ['Näyttelijät', movie.actors],
+    ['Tuotantokausia', movie.totalSeasons],
+    ['Ensi-ilta', movie.released],
+    ['Kieli', movie.language],
+    ['Maa', movie.country],
+    ['Palkinnot', movie.awards]
+  ];
+
+  const list = makeElement('dl', 'details-facts');
+  // Taulukon purku [label, value] antaa parin molemmat osat omiin muuttujiinsa
+  for (const [label, value] of facts) {
+    if (value) {
+      list.append(makeElement('dt', '', label), makeElement('dd', '', value));
+    }
+  }
+  return list;
+}
+
+/**
+ * Näyttää tietoikkunassa pelkän viestin (lataus tai virhe).
+ * @param {string} message
+ * @param {'loading'|'error'} type
+ */
+function showDetailsMessage(message, type) {
+  detailsContent.replaceChildren(makeElement('p', `status ${type}`, message));
 }
 
 
@@ -427,6 +663,58 @@ function changePage(step) {
   statusText.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/**
+ * Elokuvakortin klikkaus avaa elokuvan tiedot.
+ * Tapahtuman delegointi: kortteja ei tarvitse kuunnella yksitellen, vaan
+ * yksi käsittelijä koko tulosalueella riittää, koska klikkaus "kuplii" ylöspäin.
+ * @param {MouseEvent} event
+ */
+function handleResultsClick(event) {
+  // closest() etsii klikatusta kohdasta (esim. kuvasta) lähimmän kortin
+  const card = event.target.closest('.movie-card');
+  if (card) {
+    openDetails(card.dataset.id);
+  }
+}
+
+/**
+ * Näppäimistön tuki korteille: Enter tai välilyönti avaa tiedot.
+ * @param {KeyboardEvent} event
+ */
+function handleResultsKeydown(event) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+  const card = event.target.closest('.movie-card');
+  if (card) {
+    event.preventDefault(); // estää välilyöntiä vierittämästä sivua
+    openDetails(card.dataset.id);
+  }
+}
+
+/**
+ * Tietoikkunan sulkeminen taustaa klikkaamalla.
+ * @param {MouseEvent} event
+ */
+function handleDialogClick(event) {
+  // Kun klikataan tummaa taustaa, event.target on itse dialog-elementti.
+  // Sisällön klikkaukset osuvat sen sisällä oleviin elementteihin, joten ne eivät sulje ikkunaa.
+  if (event.target === detailsDialog) {
+    detailsDialog.close();
+  }
+}
+
+/**
+ * Kun tietoikkuna sulkeutuu (×, Esc tai taustan klikkaus),
+ * perutaan mahdollisesti vielä kesken oleva tietojen haku.
+ */
+function handleDialogClose() {
+  if (activeDetailsRequest) {
+    activeDetailsRequest.abort();
+    activeDetailsRequest = null;
+  }
+}
+
 
 /* ---------- Pudotusvalikoiden täyttö ---------- */
 
@@ -464,3 +752,8 @@ yearSelect.addEventListener('change', handleFilterChange);
 quickSelect.addEventListener('change', handleQuickSearch);
 prevButton.addEventListener('click', () => changePage(-1));
 nextButton.addEventListener('click', () => changePage(1));
+resultsGrid.addEventListener('click', handleResultsClick);
+resultsGrid.addEventListener('keydown', handleResultsKeydown);
+closeDialogButton.addEventListener('click', () => detailsDialog.close());
+detailsDialog.addEventListener('click', handleDialogClick);
+detailsDialog.addEventListener('close', handleDialogClose);
