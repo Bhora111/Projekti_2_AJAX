@@ -73,7 +73,6 @@ Korttien klikkauksissa käytetään **tapahtuman delegointia**. Jokaiselle korti
 
 ## Itsearviointi
 
-> _Täytä tämä osio omin sanoin ennen palautusta._
 
 - **Mikä onnistui hyvin?**
 - Projektin perustoiminnot onnistuivat hyvin ja sain sivun toimimaan suunnitellusti.
