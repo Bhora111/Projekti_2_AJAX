@@ -3,16 +3,23 @@
    ========================================================= */
 
 /* ----- Värit ja yhteiset arvot (CSS-muuttujat) ----- */
+/* Pinkki-musta teema. Kaikki värit on koottu tähän,
+   joten teeman voi vaihtaa muuttamalla vain näitä arvoja. */
 :root {
-  --bg: #0f1115;
-  --surface: #1a1d24;
-  --surface-hover: #232733;
-  --border: #2a2e3a;
-  --text: #e8e9ed;
-  --muted: #9aa0ad;
-  --accent: #f5c518;       /* keltainen korostusväri */
-  --accent-dark: #d4a90f;
-  --error: #ff7b7b;
+  --bg: #0a0a0a;              /* lähes musta tausta */
+  --header-top: #2a0d1d;      /* yläosan liukuvärin tumma pinkki */
+  --surface: #161214;         /* korttien ja kenttien tausta */
+  --surface-hover: #221a1f;
+  --placeholder: #1f181c;     /* "Ei julistetta" -laatikko */
+  --badge-bg: #33121f;        /* tyyppimerkin tausta */
+  --border: #2e1f27;
+  --text: #f4eef1;
+  --muted: #a8979f;
+  --accent: #ff4fa3;          /* pinkki korostusväri */
+  --accent-dark: #e0358a;
+  --accent-glow: rgba(255, 79, 163, 0.25);
+  --on-accent: #0a0a0a;       /* teksti pinkin painikkeen päällä */
+  --error: #ffa94d;           /* oranssi erottuu pinkistä */
   --radius: 10px;
 }
 
@@ -46,7 +53,7 @@ main {
 .site-header {
   padding: 2.5rem 1rem 2rem;
   text-align: center;
-  background: linear-gradient(180deg, #1c1f27 0%, var(--bg) 100%);
+  background: linear-gradient(180deg, var(--header-top) 0%, var(--bg) 100%);
   border-bottom: 1px solid var(--border);
 }
 
@@ -92,7 +99,7 @@ main {
   padding: 0.75rem 1.4rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #111;
+  color: var(--on-accent);
   background: var(--accent);
   border: none;
   border-radius: var(--radius);
@@ -136,7 +143,7 @@ main {
 .movie-card:hover {
   transform: translateY(-4px);
   background: var(--surface-hover);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 24px var(--accent-glow);
 }
 
 /* Juliste ja "ei julistetta" -laatikko ovat aina julisteen muotoisia (2:3) */
@@ -146,7 +153,7 @@ main {
   width: 100%;
   aspect-ratio: 2 / 3;
   object-fit: cover;
-  background: #262a35;
+  background: var(--placeholder);
 }
 
 .poster-placeholder {
@@ -182,7 +189,7 @@ main {
   padding: 0.1rem 0.5rem;
   font-size: 0.75rem;
   color: var(--accent);
-  background: #2c3140;
+  background: var(--badge-bg);
   border-radius: 999px;
 }
 
