@@ -10,7 +10,7 @@ Projekti 2a: AJAX call to a live REST API
 |---|---|
 | **Julkaistu sovellus** | https://leffaparkki.netlify.app |
 | **GitHub-repo** | https://github.com/Bhora111/Projekti_2_AJAX |
-| **Esittelyvideo** | _lisätään myöhemmin_ |
+| **Esittelyvideo** | https://youtu.be/GEcp3FmNv-g |
 
 ## Sovelluksen kuvaus
 
