@@ -76,10 +76,15 @@ Korttien klikkauksissa käytetään **tapahtuman delegointia**. Jokaiselle korti
 > _Täytä tämä osio omin sanoin ennen palautusta._
 
 - **Mikä onnistui hyvin?**
+- Projektin perustoiminnot onnistuivat hyvin ja sain sivun toimimaan suunnitellusti.
 - **Mikä oli haastavaa ja miten ratkaisit sen?**
+- Haastavinta oli AJAX-kutsujen ja datan käsittely.
 - **Mitä opit (esim. AJAX, fetch/async/await, DOM, tapahtumankäsittely)?**
+- Opin käyttämään fetchiä, async/awaitia ja DOM-elementtien käsittelyä
 - **Mitä parantaisit tai lisäisit, jos jatkaisit projektia?**
+- Parantaisin ulkoasua ja lisäisin uusia toimintoja
 - **Oma arvio arvosanasta (0–6) arviointikriteerien perusteella ja perustelu:**
+- 5
 
 ## Lähteet
 
@@ -87,4 +92,4 @@ Korttien klikkauksissa käytetään **tapahtuman delegointia**. Jokaiselle korti
 - MDN Web Docs. (s.a.). _Using the Fetch API_. Haettu 12.11.2026 osoitteesta https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
 - MDN Web Docs. (s.a.). _AbortController_. Haettu 12.11.2026 osoitteesta https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - MDN Web Docs. (s.a.). _&lt;dialog&gt;: The Dialog element_. Haettu 12.11.2026 osoitteesta https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog
-- Anthropic. (2026). _Claude_ [tekoälyavustaja]. Käytetty 12.11.2026. Sovelluksen suunnittelussa ja koodin kirjoittamisessa käytettiin apuna Claude-tekoälyavustajaa. Sovellus rakennettiin vaiheittain, ja jokainen vaihe käytiin läpi ja selitettiin.
+- Anthropic. (2026). _Claude_ [tekoälyavustaja]. Käytetty 12.11.2026. Koodin kirjoittamisessa käytettiin apuna Claude-tekoälyavustajaa.
